@@ -10,36 +10,38 @@ ORG 0H
 	col2 BIT P1.5
 	col3 BIT P1.6
 	col4 BIT P1.7
-	Keycode EQU 34H
-	COL EQU 32H
+	Keycode EQU 7AH
+	COL EQU 68H
 	CONFIRM BIT P3.0 
 	LOCK BIT P3.5
 	REPASS BIT P3.6
 	DEL BIT P3.1
-	MOV 71H,#0	 ; 
-	MOV R0,#40H	 ; address of default pass
-	MOV R1,#50H	 ; address of entered pass
+	MOV 72H,#0	 ; 
+	MOV R0,#20H	 ; address of default pass
+	MOV R1,#60H	 ; address of entered pass
 	;;;;;;;;;;;;;;;;;;R0:DEFAULT PASS
 	;;;;;;;;;;;;;;;;;;R1: ENTERED PASS
 	;;;;;;;;;;;;;;;;;;R2: LENGTH 0F ENTERED PASS
-	;;;;;;;;;;;;;;;;;;R3: LENGTH OF DEFAULT PASS
-	;;;;;;;;;;;;;;;;;;R4: CHECK MODE 4:NORMAL, 1: ENTER OLD PASS, 2: ENTER NEW PASS, 3: CONFIRM NEW PASS 
+	;;;;;;;;;;;;;;;;;;R3: LENGTH OF DEFAULT PASS (4)
+	;;;;;;;;;;;;;;;;;;R4: CHECK MODE 4:NORMAL, 1: ENTER OLD PASS, 2: ENTER NEW PASS, 3: CONFIRM NEW PASS, 0: CHON NGAN TU
 INIT_PASSWORD:
-	MOV R2,#6
+	MOV R2,#64 ; tao 16 mat khau 4 so
+	MOV DPTR, #PASSWORD_ADDRESS
+	
 LOOP_INIT_PASS:
 	MOV @R0,#'1'
-	MOV R4, #4
 	INC R0
 	DJNZ R2,LOOP_INIT_PASS
-	MOV R0,#40H
+	MOV R4, #0
+	MOV R0,#20H
 	MOV R2,#0
-	MOV R3,#6 ; LENGTH OF DEFAULT PASS
+	MOV R3,#4 ; LENGTH OF DEFAULT PASS
 	CLR REPASS
 	CLR DEL
 MAIN:
 CALL LCD_INIT;
-CALL DELAY_120MS
-CALL DISPLAY_ENTERPASS
+CALL DELAY_60MS
+CALL DISPLAY_CHOOSE_DRAWER
 MOV A, #0C0H
 CALL CMD_WRITE
 LOOP_MAIN:
@@ -79,10 +81,13 @@ SEND_DATA:
 	CALL DELAY_60MS
 	CLR e
 	CALL DELAY_60MS
+	CALL DELAY_60MS
+	CALL DELAY_60MS
+	RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DELAY_120MS:
-		MOV R6, #200
+		MOV R6, #250
 	LOOP_DELAY_120MS:
 		CALL DELAY_60MS
 		DJNZ R6, LOOP_DELAY_120MS
@@ -101,19 +106,28 @@ KEYBOARD_PRESS:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 MSG1: 
 DB '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+CHOOSE_DRAWER:
+DB 'ENTER DRAWER:',0	
 ENTERPASS:
-DB 'ENTER PASS:',0
-PASSWORD:
-DB '1','1','1','1','1',0
+DB 'DRAWER ',0
 R_PASS:
 DB 'SUCCESSFUL',0
 W_PASS:
 DB 'WRONG PASSWORD',0
 C_PASS:
 DB 'CHANGE:',0
+DISPLAY_CHOOSE_DRAWER:
+	MOV DPTR, #CHOOSE_DRAWER
+	CALL DISPLAY
+	RET
 DISPLAY_ENTERPASS:
 	MOV DPTR, #ENTERPASS
 	CALL DISPLAY
+	MOV A, 7CH
+	MOV DPTR, #MSG1
+	MOVC A, @A + DPTR
+	CALL SEND_DATA
+	CALL DELAY_120MS
 	RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ROWOFF:
@@ -126,90 +140,107 @@ CLR row2
 CLR row3
 CLR row4
 RET
+COLOFF:
+SETB row1
+SETB row2
+SETB row3
+SETB row4
+CLR col1
+CLR col2
+CLR col3
+CLR col4
+RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 FIND_PRESSED_KEY:
-	JNB col1, Scan
-	JNB col2, Scan
-	JNB col3, Scan
-	JNB col4, Scan
+	CJNE R2, #4, START_SCANNING
+	JMP ENTER
 	RET
-Scan:
-	CALL DELAY_120MS
-	CALL Scan_keyboard
+START_SCANNING:
+	JNB col1, SCAN_COL1
+	JNB col2, SCAN_COL2
+	JNB col3, SCAN_COL3
+	JNB col4, SCAN_COL4
 	RET
-Scan_keyboard:
-	clr		row1  				; quet hang A
-	setb	row2
-	setb	row3
-	setb	row4
-	acall	CHECK_COL			; kiem tra co phim nao cua hang A duoc nhan hay khong
+SCAN_COL1:
+	mov		COL,#0
+	CALL Scan_ROW
+	RET
+SCAN_COL2:
+	mov		COL,#1
+	CALL Scan_ROW
+	RET
+SCAN_COL3:
+	mov		COL,#2
+	CALL Scan_ROW
+	RET
+SCAN_COL4:
+	mov		COL,#3
+	CALL Scan_ROW
+	RET
+SCAN_ROW:
+	CALL COLOFF
+	JNB row1, SCAN_ROW1
+	JNB row2, SCAN_ROW2
+	JNB row3, SCAN_ROW3
+	JNB row4, SCAN_ROW4
+	RET
+SCAN_ROW1:
 	mov		A,COL				; tra ve vi tri Cot cua phim duoc nhan
-	jz		to_row2				; nhay sang quet hang tiep theo neu khong co phim nao cua hang A duoc nhan
-	subb	A,#1
 	mov		Keycode,A			; neu co phim cua hang A duoc nhan thi luu gia tri phim ( 0...1...2...3)
+	CALL DELAY_120MS
+	CALL DELAY_120MS
+	CALL DELAY_120MS
 	sjmp	ok
-to_row2:
-	clr		row2
-	setb	row1
-	setb	row3
-	setb	row4
-	acall	CHECK_COL
-	mov		A,COL
-	jz		to_row3
-	add		A,#3
-	mov		Keycode,A		   ;neu co phim cua hang B duoc nhan thi luu gia tri phim ( 4...5...6...7)
+SCAN_ROW2:
+	mov		A,COL				; tra ve vi tri Cot cua phim duoc nhan
+	mov		Keycode,A			; neu co phim cua hang A duoc nhan thi luu gia tri phim ( 0...1...2...3)
+	add		A,#4
+	CALL DELAY_120MS
+	CALL DELAY_120MS
+	CALL DELAY_120MS
 	sjmp	ok
-to_row3:
-	clr		row3
-	setb	row1
-	setb	row2
-	setb	row4
-	acall	CHECK_COL
-	mov		A,COL
-	jz		to_row4
-	add		A,#7			   ;neu co phim cua hang C duoc nhan thi luu gia tri phim ( 8...9..a...b)
-	mov		Keycode,A
+SCAN_ROW3:
+	mov		A,COL				; tra ve vi tri Cot cua phim duoc nhan
+	mov		Keycode,A			; neu co phim cua hang A duoc nhan thi luu gia tri phim ( 0...1...2...3)
+	add		A,#8
+	CALL DELAY_120MS
+	CALL DELAY_120MS
+	CALL DELAY_120MS
 	sjmp	ok
-to_row4:
-	clr		row4
-	setb	row1
-	setb	row2
-	setb	row3
-	acall	CHECK_COL
-	mov		A,COL
-	jz		ok
-	add		A,#11			  ;neu co phim cua hang D duoc nhan thi luu gia tri phim ( c...d...e...f)
-	mov		Keycode,A
+SCAN_ROW4:
+	mov		A,COL				; tra ve vi tri Cot cua phim duoc nhan
+	mov		Keycode,A			; neu co phim cua hang A duoc nhan thi luu gia tri phim ( 0...1...2...3)
+	add		A,#12
+	CALL DELAY_120MS
+	CALL DELAY_120MS
+	CALL DELAY_120MS
+	sjmp	ok	
 ok:
-
-CALL SAVE_KEY
- ret
+	CJNE R4, #0, SAVE_KEY
+	JMP GET_DRAWER_NUMBER
+	ret
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+GET_DRAWER_NUMBER:
+	MOV 7CH, A ; Luu vi tri trong mang address cua tu
+	CALL DELAY_120MS
+	CALL LCD_ENTER_NORMAL_PASS
+RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CHECK_COL:
-	jb		col1,check_col2
-	mov		COL,#1			  				; co phim o Cot 1 duoc nhan
-	sjmp	finish
-check_col2:
-	jb		col2,check_col3
-	mov		COL,#2							;			Cot 2
-	sjmp	finish
-check_col3:
-	jb		col3,check_col4
-	mov		COL,#3							; 			Cot 3
-	sjmp	finish
-check_col4:
-	jb		col4,no_col
-	mov		COL,#4							;			Cot 4
-	sjmp	finish
-no_col:
-	mov		COL,#0							;			khong tim thay phim nao duoc nhan cua 1 Hang
-finish:
-ret
-
+LCD_ENTER_NORMAL_PASS:
+	MOV R4,#4
+	MOV A,#01H
+	CALL CMD_WRITE
+	CALL DELAY_120MS
+	CALL DISPLAY_ENTERPASS
+	MOV A,#0C0H
+	CALL CMD_WRITE
+	CALL DELAY_120MS 
+	JMP KEYBOARD_PRESS
+	RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 SAVE_KEY:
-MOV DPTR, #MSG1
+	MOV DPTR, #MSG1
 	MOVC A, @A + DPTR
 	MOV @R1,A
 	INC R1
@@ -267,8 +298,8 @@ CHANGE_PASSWORD:
 	MOV R4, #1
 	JMP LCD_ENTER_OLD_PASS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 LCD_ENTER_OLD_PASS:
-	MOV R4,#1
 	MOV A,#01H
 	CALL CMD_WRITE
 	CALL DELAY_120MS
@@ -280,7 +311,7 @@ LCD_ENTER_OLD_PASS:
 	JMP KEYBOARD_PRESS
 	RET
 LCD_ENTER_NEW_PASS:
-	MOV R1,#60H
+	MOV R1,#64H
 	MOV R7,#0
 	MOV R2,#0
 	MOV R4,#2
@@ -295,7 +326,7 @@ LCD_ENTER_NEW_PASS:
 	JMP KEYBOARD_PRESS
 	RET
 LCD_REENTER_NEW_PASS:
-	MOV R1,#50H
+	MOV R1,#60H
 	MOV R2,#0
 	MOV R4,#3
 	MOV A,#01H
@@ -311,17 +342,24 @@ LCD_REENTER_NEW_PASS:
 CHANGE_PASS_TEXT4: DB 'REENTER NEW PASS:',0
 CHANGE_PASS_TEXT2: DB 'NEW PASS',0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+GET_DRAWER_CURRENT_PASSWORD_ADDRESS:
+	MOV A, 7CH
+	MOV DPTR, #PASSWORD_ADDRESS
+	MOVC A, @A + DPTR
+	MOV R0, A
+	RET
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ENTER_NORMAL_MODE:
+	CALL GET_DRAWER_CURRENT_PASSWORD_ADDRESS
 	MOV A,R2
-	MOV 74H,R3
-	SUBB A,74H
+	MOV 75H,R3
+	SUBB A,75H
 	CJNE A,#00H,WRONG_PASS
-	MOV R1,#50H
-	MOV R0,#40H
+	MOV R1,#60H
 LOOP_ENTER_NORMAL_MODE:
 MOV A,@R0
-MOV 74H,@R1
-SUBB A,74H
+MOV 75H,@R1
+SUBB A,75H
 CJNE A,#00H,WRONG_PASS
 INC R1
 INC R0
@@ -330,16 +368,16 @@ JMP OPEN_LOCK
 RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ENTER_OLD_PASS:
+	CALL GET_DRAWER_CURRENT_PASSWORD_ADDRESS
 	MOV A,R2
-	MOV 74H,R3
-	SUBB A,74H
+	MOV 75H,R3
+	SUBB A,75H
 	CJNE A,#00H,WRONG_PASS
-	MOV R1,#50H
-	MOV R0,#40H
+	MOV R1,#60H
 	LOOP_ENTER_OLD_PASS:
 	MOV A,@R0
-	MOV 74H,@R1
-	SUBB A,74H
+	MOV 75H,@R1
+	SUBB A,75H
 	CJNE A,#00H,WRONG_PASS
 	INC R1
 	INC R0
@@ -354,15 +392,15 @@ RET
 ; *************************
 REENTER_NEW_PASS:
 	MOV A,R7
-	MOV 74H,R2
-	SUBB A,74H
+	MOV 75H,R2
+	SUBB A,75H
 	CJNE A,#0,OPEN_LOCK
-	MOV R1,#60H
-	MOV R0,#50H
+	MOV R1,#64H
+	MOV R0,#60H
 	ENTER121:
-	MOV 74H,@R0
+	MOV 75H,@R0
 	MOV A,@R1
-	SUBB A,74H
+	SUBB A,75H
 	CJNE A,#0,WRONG_PASS
 	INC R1
 	INC R0
@@ -371,11 +409,11 @@ REENTER_NEW_PASS:
 RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SAVE_PASSWORD:
+	CALL GET_DRAWER_CURRENT_PASSWORD_ADDRESS
 	CLR A
 	MOV A,R7
 	MOV R3,A
-	MOV R1,#60H
-	MOV R0,#40H
+	MOV R1,#64H
 	LOOP_SAVE_PASS:
 	CLR A
 	MOV A,@R1
@@ -384,11 +422,10 @@ SAVE_PASSWORD:
 	INC R1
 	DJNZ R4,LOOP_SAVE_PASS
 	MOV R4,#4
-	MOV R0,#40H
-	MOV R1,#50H
+	MOV R1,#60H
 	MOV R7,#0
 	MOV R2,#0
-	MOV 71H,#0
+	MOV 72H,#0
 	JMP CHANGED_SUCCESSFULL
 RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -397,6 +434,7 @@ WRONG_PASS:
 RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CHANGED_SUCCESSFULL:
+MOV R4, #0
 MOV A,#01H
 CALL CMD_WRITE
 CALL DELAY_120MS
@@ -419,6 +457,7 @@ OPEN_LOCK:
 	CALL DELAY_120MS
 	LOOP_OPEN:
 		JNB LOCK, LOOP_OPEN
+		MOV R4, #0
 		JMP MAIN
 RET
 RESET_STATE:
@@ -433,10 +472,10 @@ RESET_STATE:
 	CALL DELAY_120MS
 	CALL DELAY_120MS
 	MOV R2,#0
-	MOV R1,#50H
+	MOV R1,#60H
 	JMP MAIN
 	RET
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+PASSWORD_ADDRESS: DB 20H, 24H, 28H, 2CH, 30H, 34H, 38H, 3CH, 40H, 44H, 48H, 4CH, 50H, 54H, 58H, 5CH
 CHANGE_PASS_TEXT1: DB 'OLD PASS:',0
 END
