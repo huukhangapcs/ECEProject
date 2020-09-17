@@ -85,7 +85,7 @@ GET_LED_CODE:
     MOV    R0,#10H       
     MOV    R1,#20H
 GM1: 
-	MOV    R6,#2
+	MOV    R6,#10
 GM2: 
 	MOV    A,@R0
     MOVC  A,@A+DPTR

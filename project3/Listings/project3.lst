@@ -1,0 +1,204 @@
+A51 MACRO ASSEMBLER  PROJECT3                                                             09/17/2020 09:20:19 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\project3.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE project3.a51 SET(SMALL) DEBUG PRINT(.\Listings\project3.lst) OBJECT(.\O
+                      bjects\project3.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+  REG                  1     SECOND      EQU    R2
+  REG                  2     MINUTE     EQU    R3
+  REG                  3     HOUR        EQU    R4
+  REG                  4     COUNT    EQU    R5 ; LOOP 20 TIMES FOR 1 SECOND
+0000                   5     ORG    000H
+0000 800B              6     JMP    MAIN
+000B                   7     ORG    00BH   
+000B 803E              8     JMP    STOP
+                       9     
+000D                  10     MAIN:
+000D C290             11             CLR P1.0
+000F C291             12             CLR P1.1
+0011 C292             13             CLR P1.2
+0013 758901           14         MOV    TMOD,#01H
+0016 758C3C           15         MOV    TH0,#HIGH(-50000)
+0019 758AB0           16         MOV    TL0,#LOW(-50000)
+001C C28D             17         CLR    TF0
+001E D28C             18         SETB    TR0
+0020 75A882           19         MOV    IE,#82H
+0023                  20     LOOP:
+0023 7C00             21             MOV    HOUR,#0
+0025                  22     RESET_MIN:    
+0025 7B00             23             MOV    MINUTE,#0
+0027                  24     RESET_SEC:    
+0027 7A00             25             MOV    SECOND,#0
+0029                  26     RESET_COUNT: 
+0029 7D00             27             MOV    COUNT,#0
+002B 1162             28         CALL    HEX_BCD
+002D 1181             29         CALL    GET_LED_CODE
+002F                  30     NO_RESET: 
+002F 1198             31             CALL    DISPLAY
+0031 20901F           32             JB P1.0,CHANGE_HOUR
+0034 209121           33             JB P1.1,CHANGE_MIN
+0037 209223           34             JB P1.2,CHANGE_SEC
+003A BD14F2           35         CJNE    COUNT,#20,NO_RESET
+003D 0A               36             INC_SEC: INC    SECOND
+003E BA3CE8           37         CJNE    SECOND,#60,RESET_COUNT
+0041 0B               38         INC_MIN: INC    MINUTE
+0042 BB3CE2           39         CJNE    MINUTE,#60,RESET_SEC
+0045 0C               40         INC_HOUR: INC    HOUR
+0046 BC18DC           41         CJNE    HOUR,#24,RESET_MIN
+0049 80D8             42         JMP    LOOP
+                      43     ;*********************************************
+004B                  44     STOP:
+004B 758AB0           45         MOV    TL0,#LOW(-50000)
+004E 758C3C           46         MOV    TH0,#HIGH(-50000) ;DELAY 50MS -> LAP 20LAN = 1S
+0051 0D               47         INC    COUNT
+0052 32               48     RETI
+                      49     ;*********************************************
+0053                  50     CHANGE_HOUR:
+0053 11B2             51             CALL DELAY_50MS
+0055 80EE             52             JMP INC_HOUR
+0057 22               53             RET
+0058                  54     CHANGE_MIN:
+0058 11B2             55             CALL DELAY_50MS
+005A 80E5             56             JMP INC_MIN
+005C 22               57             RET
+A51 MACRO ASSEMBLER  PROJECT3                                                             09/17/2020 09:20:19 PAGE     2
+
+005D                  58     CHANGE_SEC:
+005D 11B2             59             CALL DELAY_50MS
+005F 80DC             60             JMP INC_SEC
+0061 22               61             RET
+                      62     ;*********************************************
+0062                  63     HEX_BCD:
+0062 EA               64         MOV     A,SECOND
+0063 75F00A           65         MOV     B,#10
+0066 84               66         DIV       AB
+0067 85F010           67         MOV    10H,B            ;LUU SO HANG DV GIAY
+006A F511             68         MOV    11H,A              ;LUU SO HANG CHUC GIAY
+                      69        
+006C EB               70         MOV    A,MINUTE
+006D 75F00A           71         MOV    B,#10
+0070 84               72         DIV       AB
+0071 85F012           73         MOV    12H,B            ;LUU SO HANG DV PHUT
+0074 F513             74         MOV    13H,A            ;LUU SO HANG CHUC PHUT
+                      75     
+0076 EC               76         MOV    A,HOUR
+0077 75F00A           77         MOV    B,#10
+007A 84               78         DIV       AB
+007B 85F014           79         MOV    14H,B        ;LUU SO HANG DV GIO
+007E F515             80         MOV    15H,A        ;LUU SO HANG CHUC GIO
+0080 22               81     RET
+                      82     ;*********************************************
+0081                  83     GET_LED_CODE:
+0081 9000C0           84         MOV    DPTR,#LED_CODE
+0084 7810             85         MOV    R0,#10H       
+0086 7920             86         MOV    R1,#20H
+0088                  87     GM1: 
+0088 7E0A             88             MOV    R6,#10
+008A                  89     GM2: 
+008A E6               90             MOV    A,@R0
+008B 93               91         MOVC  A,@A+DPTR
+008C F7               92         MOV    @R1,A
+008D 08               93         INC      R0
+008E 09               94         INC      R1
+008F DEF9             95         DJNZ    R6,GM2
+0091 77BF             96         MOV    @R1,#0BFH
+0093 09               97         INC       R1
+0094 B816F1           98         CJNE    R0,#16H,GM1
+0097 22               99     RET
+                     100     ;*********************************************
+0098                 101     DISPLAY:
+0098 7820            102         MOV     R0,#20H
+009A 7480            103         MOV     A,#80H
+009C                 104     LOOP_DISPLAY: 
+009C 8680            105             MOV   P0,@R0
+009E F5A0            106         MOV     P2,A
+00A0 11BB            107         CALL    DELAY
+00A2 75A000          108         MOV     P2,#00H        ;CHONG LEM
+00A5 08              109         INC       R0
+00A6 03              110         RR        A
+00A7 B480F2          111         CJNE    A,#80H,LOOP_DISPLAY
+00AA 22              112     RET
+                     113     ;*********************************************
+00AB                 114     DELAY_MORE:
+00AB 7E96            115             MOV R6, #150
+00AD                 116             LOOP_DELAY_MORE:
+00AD 11BB            117                     CALL DELAY
+00AF DEFC            118                     DJNZ R6, LOOP_DELAY_MORE
+00B1 22              119             RET
+                     120     ;**********************************************
+00B2                 121     DELAY_50MS:
+00B2 7EFF            122                     MOV R6, #255
+00B4                 123                     LOOP_DELAY_50MS:
+A51 MACRO ASSEMBLER  PROJECT3                                                             09/17/2020 09:20:19 PAGE     3
+
+00B4 11BB            124                             CALL DELAY
+00B6 11BB            125                             CALL DELAY
+00B8 DEFA            126                             DJNZ R6, LOOP_DELAY_50MS
+00BA 22              127                             RET
+00BB                 128     DELAY:
+00BB 7FFF            129         MOV    R7,#255
+00BD DFFE            130         DJNZ    R7,$
+00BF 22              131     RET
+                     132     ;*********************************************
+00C0                 133     LED_CODE:
+00C0 C0F9A4B0        134     DB 0C0H,0F9H,0A4H,0B0H,99H,92H,82H,0F8H,80H,90H
+00C4 999282F8                
+00C8 8090                    
+                     135     END
+A51 MACRO ASSEMBLER  PROJECT3                                                             09/17/2020 09:20:19 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+B. . . . . . . . .  D ADDR   00F0H   A   
+CHANGE_HOUR. . . .  C ADDR   0053H   A   
+CHANGE_MIN . . . .  C ADDR   0058H   A   
+CHANGE_SEC . . . .  C ADDR   005DH   A   
+COUNT. . . . . . .    REG    R5          
+DELAY. . . . . . .  C ADDR   00BBH   A   
+DELAY_50MS . . . .  C ADDR   00B2H   A   
+DELAY_MORE . . . .  C ADDR   00ABH   A   
+DISPLAY. . . . . .  C ADDR   0098H   A   
+GET_LED_CODE . . .  C ADDR   0081H   A   
+GM1. . . . . . . .  C ADDR   0088H   A   
+GM2. . . . . . . .  C ADDR   008AH   A   
+HEX_BCD. . . . . .  C ADDR   0062H   A   
+HOUR . . . . . . .    REG    R4          
+IE . . . . . . . .  D ADDR   00A8H   A   
+INC_HOUR . . . . .  C ADDR   0045H   A   
+INC_MIN. . . . . .  C ADDR   0041H   A   
+INC_SEC. . . . . .  C ADDR   003DH   A   
+LED_CODE . . . . .  C ADDR   00C0H   A   
+LOOP . . . . . . .  C ADDR   0023H   A   
+LOOP_DELAY_50MS. .  C ADDR   00B4H   A   
+LOOP_DELAY_MORE. .  C ADDR   00ADH   A   
+LOOP_DISPLAY . . .  C ADDR   009CH   A   
+MAIN . . . . . . .  C ADDR   000DH   A   
+MINUTE . . . . . .    REG    R3          
+NO_RESET . . . . .  C ADDR   002FH   A   
+P0 . . . . . . . .  D ADDR   0080H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . .  D ADDR   00A0H   A   
+RESET_COUNT. . . .  C ADDR   0029H   A   
+RESET_MIN. . . . .  C ADDR   0025H   A   
+RESET_SEC. . . . .  C ADDR   0027H   A   
+SECOND . . . . . .    REG    R2          
+STOP . . . . . . .  C ADDR   004BH   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
